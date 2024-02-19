@@ -77,10 +77,13 @@ describe('persisted()', () => {
       expect(value).toEqual(124)
     })
 
-    test("BUG: update should use existing value", () => {
+    test('BUG: update should use existing value', () => {
       localStorage.setItem('myKey6b', '12345')
       const store = persisted('myKey6b', 123)
-      store.update(n => { n += 1; return n })
+      store.update(n => {
+        n += 1
+        return n
+      })
 
       expect(localStorage.myKey6b).toEqual('12346')
     })
@@ -90,7 +93,7 @@ describe('persisted()', () => {
     it('publishes updates', () => {
       const store = persisted('myKey7', 123)
       const values: number[] = []
-      const unsub = store.subscribe((value : number) => {
+      const unsub = store.subscribe((value: number) => {
         if (value !== undefined) values.push(value)
       })
       store.set(456)
@@ -133,41 +136,41 @@ describe('persisted()', () => {
   })
 
   describe('handles window.storage event', () => {
-    type NumberDict = { [key: string] : number }
+    type NumberDict = { [key: string]: number }
 
     it('sets storage when key matches', () => {
-      const store = persisted('myKey8', {a: 1})
+      const store = persisted('myKey8', { a: 1 })
       const values: NumberDict[] = []
 
       const unsub = store.subscribe((value: NumberDict) => {
         values.push(value)
       })
 
-      const event = new StorageEvent('storage', {key: 'myKey8', newValue: '{"a": 1, "b": 2}'})
+      const event = new StorageEvent('storage', { key: 'myKey8', newValue: '{"a": 1, "b": 2}' })
       window.dispatchEvent(event)
 
-      expect(values).toEqual([{a: 1}, {a: 1, b: 2}])
+      expect(values).toEqual([{ a: 1 }, { a: 1, b: 2 }])
 
       unsub()
     })
 
     it('sets store to null when value is null', () => {
-      const store = persisted('myKey9', {a: 1})
+      const store = persisted('myKey9', { a: 1 })
       const values: NumberDict[] = []
 
       const unsub = store.subscribe((value: NumberDict) => {
         values.push(value)
       })
 
-      const event = new StorageEvent('storage', {key: 'myKey9', newValue: null})
+      const event = new StorageEvent('storage', { key: 'myKey9', newValue: null })
       window.dispatchEvent(event)
 
-      expect(values).toEqual([{a: 1}, null])
+      expect(values).toEqual([{ a: 1 }, null])
 
       unsub()
     })
 
-    it("doesn't update store when key doesn't match", () => {
+    it('doesn\'t update store when key doesn\'t match', () => {
       const store = persisted('myKey10', 1)
       const values: number[] = []
 
@@ -175,7 +178,7 @@ describe('persisted()', () => {
         values.push(value)
       })
 
-      const event = new StorageEvent('storage', {key: 'unknownKey', newValue: '2'})
+      const event = new StorageEvent('storage', { key: 'unknownKey', newValue: '2' })
       window.dispatchEvent(event)
 
       expect(values).toEqual([1])
@@ -183,13 +186,13 @@ describe('persisted()', () => {
       unsub()
     })
 
-    it("doesn't update store when there are no subscribers", () => {
+    it('doesn\'t update store when there are no subscribers', () => {
       localStorage.setItem('myKeyb', '2')
 
       const store = persisted('myKeyb', 1)
       const values: number[] = []
 
-      const event = new StorageEvent('storage', {key: 'myKeyb', newValue: '2'})
+      const event = new StorageEvent('storage', { key: 'myKeyb', newValue: '2' })
       window.dispatchEvent(event)
 
       const unsub = store.subscribe((value: number) => {
@@ -209,7 +212,7 @@ describe('persisted()', () => {
         values.push(value)
       })
 
-      const event = new StorageEvent('storage', {key: 'myKey10', newValue: '2'})
+      const event = new StorageEvent('storage', { key: 'myKey10', newValue: '2' })
       window.dispatchEvent(event)
 
       expect(values).toEqual([1])
@@ -217,15 +220,15 @@ describe('persisted()', () => {
       unsub()
     })
 
-    it("doesn't update, when syncTabs option is disabled", () => {
+    it('doesn\'t update, when syncTabs option is disabled', () => {
       const store = persisted('myKey13', 1, { syncTabs: false })
-      const values = []
+      const values: unknown[] = []
 
       const unsub = store.subscribe((value) => {
         values.push(value)
       })
 
-      const event = new StorageEvent('storage', {key: 'myKey13', newValue: '2'})
+      const event = new StorageEvent('storage', { key: 'myKey13', newValue: '2' })
       window.dispatchEvent(event)
 
       expect(values).toEqual([1])
@@ -248,7 +251,7 @@ describe('persisted()', () => {
     store.update(d => d.add(4))
 
     expect(value).toEqual(testSet)
-    expect(localStorage.myKey11).toEqual(serializer.stringify(new Set([1,2,3,4])))
+    expect(localStorage.myKey11).toEqual(serializer.stringify(new Set([1, 2, 3, 4])))
   })
 
   it('lets you switch storage type', () => {
@@ -258,11 +261,42 @@ describe('persisted()', () => {
     const value = 'foo'
 
     const store = persisted('myKey12', value, {
-      storage: 'session'
+      storage: 'session',
     })
 
     store.set('bar')
 
     expect(window.sessionStorage.setItem).toHaveBeenCalled()
+  })
+
+  it('lets you add custom storage type', () => {
+    const tempStore: { [key: string]: string } = {}
+    const CustomStorage = {
+      setItem: function(key: string, value: string) {
+        tempStore[key] = value
+      },
+      getItem: function(key: string) {
+        return tempStore[key]
+      },
+      valueOf: () => 'custom',
+    }
+
+    const setItemSpy = vi.spyOn(CustomStorage, 'setItem')
+
+    const value = 'foo'
+
+    const store = persisted('myKey13', value, {
+      storage: CustomStorage,
+    })
+
+    expect(get(store)).toEqual('foo')
+    expect(get(store)).not.toEqual('bar')
+
+    store.set('bar')
+
+    expect(get(store)).not.toEqual('foo')
+    expect(get(store)).toEqual('bar')
+
+    expect(setItemSpy).toHaveBeenCalled()
   })
 })

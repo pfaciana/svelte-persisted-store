@@ -7,11 +7,12 @@ declare type StoreDict<T> = { [key: string]: Writable<T> }
 interface Stores {
   local: StoreDict<any>,
   session: StoreDict<any>,
+  [key: string]: StoreDict<any>,
 }
 
 const stores: Stores = {
   local: {},
-  session: {}
+  session: {},
 }
 
 export interface Serializer<T> {
@@ -19,7 +20,12 @@ export interface Serializer<T> {
   stringify(object: T): string
 }
 
-export type StorageType = 'local' | 'session'
+export interface Storage {
+  valueOf: () => string;
+  [key: string]: any;
+}
+
+export type StorageType = 'local' | 'session' | Storage
 
 export interface Options<T> {
   serializer?: Serializer<T>
@@ -29,21 +35,26 @@ export interface Options<T> {
 }
 
 function getStorage(type: StorageType) {
+  if (typeof type !== 'string') {
+    stores[type.valueOf()] = {}
+    return type
+  }
   return type === 'local' ? localStorage : sessionStorage
 }
 
 /** @deprecated `writable()` has been renamed to `persisted()` */
 export function writable<T>(key: string, initialValue: T, options?: Options<T>): Writable<T> {
-  console.warn("writable() has been deprecated. Please use persisted() instead.\n\nchange:\n\nimport { writable } from 'svelte-persisted-store'\n\nto:\n\nimport { persisted } from 'svelte-persisted-store'")
+  console.warn('writable() has been deprecated. Please use persisted() instead.\n\nchange:\n\nimport { writable } from \'svelte-persisted-store\'\n\nto:\n\nimport { persisted } from \'svelte-persisted-store\'')
   return persisted<T>(key, initialValue, options)
 }
+
 export function persisted<T>(key: string, initialValue: T, options?: Options<T>): Writable<T> {
   const serializer = options?.serializer ?? JSON
-  const storageType = options?.storage ?? 'local'
+  const storageType = options?.storage?.valueOf() ?? 'local'
   const syncTabs = options?.syncTabs ?? true
   const onError = options?.onError ?? ((e) => console.error(`Error when writing value from persisted store "${key}" to ${storageType}`, e))
   const browser = typeof (window) !== 'undefined' && typeof (document) !== 'undefined'
-  const storage = browser ? getStorage(storageType) : null
+  const storage = browser ? getStorage(options?.storage ?? 'local') : (options?.storage && typeof options.storage !== 'string' ? options.storage : null)
 
   function updateStorage(key: string, value: T) {
     try {
@@ -72,9 +83,9 @@ export function persisted<T>(key: string, initialValue: T, options?: Options<T>)
             set(event.newValue ? serializer.parse(event.newValue) : null)
         }
 
-        window.addEventListener("storage", handleStorage)
+        window.addEventListener('storage', handleStorage)
 
-        return () => window.removeEventListener("storage", handleStorage)
+        return () => window.removeEventListener('storage', handleStorage)
       }
     })
 
@@ -94,7 +105,7 @@ export function persisted<T>(key: string, initialValue: T, options?: Options<T>)
           return value
         })
       },
-      subscribe
+      subscribe,
     }
   }
 
