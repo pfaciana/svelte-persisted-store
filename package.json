@@ -1,6 +1,6 @@
 {
   "name": "svelte-persisted-custom-storage",
-  "version": "v0.10.0",
+  "version": "v0.10.2",
   "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
